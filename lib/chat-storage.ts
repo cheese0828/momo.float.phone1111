@@ -1255,8 +1255,16 @@ function normalizeLegacyTextToolHistory(messages: ChatMessage[]): {
 
 function refreshSessionPreviewMetadata(sessions: ChatSession[]): NormalizedList<ChatSession> {
     let changed = false;
+    // 启动时一次遍历算出每个会话的最后一条消息；逐会话调用
+    // getLastVisibleSessionMessage 会变成「会话数 × 消息总数」，数据多时在手机上卡死。
+    const lastBySession = new Map<string, ChatMessage>();
+    for (const msg of _messagesCache) {
+        if (!isSessionPreviewCandidate(msg)) continue;
+        const last = lastBySession.get(msg.sessionId);
+        if (!last || compareChatMessages(last, msg) < 0) lastBySession.set(msg.sessionId, msg);
+    }
     const items = sessions.map(session => {
-        const lastMsg = getLastVisibleSessionMessage(session.id);
+        const lastMsg = lastBySession.get(session.id) ?? null;
         const nextLastMessageId = lastMsg?.id;
         const nextPreview = lastMsg ? getChatMessagePreview(lastMsg) : "";
         const nextUpdatedAt = lastMsg?.createdAt || session.updatedAt;
